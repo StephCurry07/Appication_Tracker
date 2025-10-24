@@ -1,233 +1,174 @@
 import React, { useState, useEffect } from 'react';
-import { JobApplication, ApplicationStatus, Interview, Document, FollowUp, InterviewType, DocumentType, FollowUpType } from '../types';
-import { getCurrentDate, getCurrentDateTime } from '../utils/dateUtils';
-import { generateId } from '../utils/storage';
+import { JobApplication, ApplicationStatus, StatusLabels } from '../types';
+import { getCurrentDate } from '../utils/storage';
 
 interface ApplicationFormProps {
-  application?: JobApplication | null;
-  onSubmit: (application: JobApplication | Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSubmit: (application: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
+  initialData?: JobApplication;
 }
 
-const ApplicationForm: React.FC<ApplicationFormProps> = ({ application, onSubmit, onCancel }) => {
+export const ApplicationForm: React.FC<ApplicationFormProps> = ({
+  onSubmit,
+  onCancel,
+  initialData
+}) => {
   const [formData, setFormData] = useState({
     company: '',
     position: '',
-    location: '',
-    salaryRange: '',
-    jobDescription: '',
-    applicationDate: getCurrentDate(),
     status: ApplicationStatus.DRAFT,
-    source: '',
+    dateApplied: getCurrentDate(),
+    location: '',
+    salary: '',
+    notes: '',
     contactPerson: '',
     contactEmail: '',
-    notes: '',
+    jobUrl: ''
   });
 
-  const [interviews, setInterviews] = useState<Interview[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-
   useEffect(() => {
-    if (application) {
+    if (initialData) {
       setFormData({
-        company: application.company,
-        position: application.position,
-        location: application.location,
-        salaryRange: application.salaryRange || '',
-        jobDescription: application.jobDescription || '',
-        applicationDate: application.applicationDate,
-        status: application.status,
-        source: application.source,
-        contactPerson: application.contactPerson || '',
-        contactEmail: application.contactEmail || '',
-        notes: application.notes,
+        company: initialData.company,
+        position: initialData.position,
+        status: initialData.status,
+        dateApplied: initialData.dateApplied,
+        location: initialData.location || '',
+        salary: initialData.salary || '',
+        notes: initialData.notes || '',
+        contactPerson: initialData.contactPerson || '',
+        contactEmail: initialData.contactEmail || '',
+        jobUrl: initialData.jobUrl || ''
       });
-      setInterviews(application.interviews);
-      setDocuments(application.documents);
-      setFollowUps(application.followUps);
     }
-  }, [application]);
+  }, [initialData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const applicationData = {
-      ...formData,
-      interviews,
-      documents,
-      followUps,
-    };
-
-    if (application) {
-      onSubmit({
-        ...application,
-        ...applicationData,
-      });
-    } else {
-      onSubmit(applicationData);
-    }
-  };
-
-  const getStatusLabel = (status: ApplicationStatus) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
   return (
-    <div>
-      <div className="modal-header">
-        <h2 className="modal-title">
-          {application ? 'Edit Application' : 'Add New Application'}
-        </h2>
-        <button className="close-btn" onClick={onCancel}>
-          ×
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-2">
+    <div className="form-container">
+      <h2>{initialData ? 'Edit Application' : 'Add New Application'}</h2>
+      <form onSubmit={handleSubmit} className="application-form">
+        <div className="form-row">
           <div className="form-group">
             <label htmlFor="company">Company *</label>
             <input
               type="text"
               id="company"
               name="company"
-              className="form-control"
               value={formData.company}
-              onChange={handleInputChange}
+              onChange={handleChange}
               required
             />
           </div>
-
           <div className="form-group">
             <label htmlFor="position">Position *</label>
             <input
               type="text"
               id="position"
               name="position"
-              className="form-control"
               value={formData.position}
-              onChange={handleInputChange}
+              onChange={handleChange}
               required
             />
           </div>
         </div>
 
-        <div className="grid grid-2">
+        <div className="form-row">
           <div className="form-group">
-            <label htmlFor="location">Location *</label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              className="form-control"
-              value={formData.location}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="salaryRange">Salary Range</label>
-            <input
-              type="text"
-              id="salaryRange"
-              name="salaryRange"
-              className="form-control"
-              placeholder="e.g., $80,000 - $100,000"
-              value={formData.salaryRange}
-              onChange={handleInputChange}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-2">
-          <div className="form-group">
-            <label htmlFor="applicationDate">Application Date *</label>
-            <input
-              type="date"
-              id="applicationDate"
-              name="applicationDate"
-              className="form-control"
-              value={formData.applicationDate}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="status">Status *</label>
+            <label htmlFor="status">Status</label>
             <select
               id="status"
               name="status"
-              className="form-control"
               value={formData.status}
-              onChange={handleInputChange}
-              required
+              onChange={handleChange}
             >
-              {Object.values(ApplicationStatus).map(status => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
+              {Object.entries(StatusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="grid grid-2">
           <div className="form-group">
-            <label htmlFor="source">Source *</label>
+            <label htmlFor="dateApplied">Date Applied</label>
             <input
-              type="text"
-              id="source"
-              name="source"
-              className="form-control"
-              placeholder="e.g., LinkedIn, Indeed, Company Website"
-              value={formData.source}
-              onChange={handleInputChange}
-              required
+              type="date"
+              id="dateApplied"
+              name="dateApplied"
+              value={formData.dateApplied}
+              onChange={handleChange}
             />
           </div>
+        </div>
 
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="location">Location</label>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="e.g., San Francisco, CA"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="salary">Salary Range</label>
+            <input
+              type="text"
+              id="salary"
+              name="salary"
+              value={formData.salary}
+              onChange={handleChange}
+              placeholder="e.g., $80k - $120k"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
           <div className="form-group">
             <label htmlFor="contactPerson">Contact Person</label>
             <input
               type="text"
               id="contactPerson"
               name="contactPerson"
-              className="form-control"
               value={formData.contactPerson}
-              onChange={handleInputChange}
+              onChange={handleChange}
+              placeholder="Recruiter or hiring manager name"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="contactEmail">Contact Email</label>
+            <input
+              type="email"
+              id="contactEmail"
+              name="contactEmail"
+              value={formData.contactEmail}
+              onChange={handleChange}
+              placeholder="contact@company.com"
             />
           </div>
         </div>
 
         <div className="form-group">
-          <label htmlFor="contactEmail">Contact Email</label>
+          <label htmlFor="jobUrl">Job URL</label>
           <input
-            type="email"
-            id="contactEmail"
-            name="contactEmail"
-            className="form-control"
-            value={formData.contactEmail}
-            onChange={handleInputChange}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="jobDescription">Job Description</label>
-          <textarea
-            id="jobDescription"
-            name="jobDescription"
-            className="form-control textarea"
-            rows={4}
-            value={formData.jobDescription}
-            onChange={handleInputChange}
+            type="url"
+            id="jobUrl"
+            name="jobUrl"
+            value={formData.jobUrl}
+            onChange={handleChange}
+            placeholder="https://company.com/jobs/123"
           />
         </div>
 
@@ -236,25 +177,22 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ application, onSubmit
           <textarea
             id="notes"
             name="notes"
-            className="form-control textarea"
-            rows={4}
-            placeholder="Any additional notes, feedback, or follow-up items..."
             value={formData.notes}
-            onChange={handleInputChange}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Additional notes about the application..."
           />
         </div>
 
-        <div className="flex gap-10 mt-20">
-          <button type="submit" className="btn btn-primary">
-            {application ? 'Update Application' : 'Add Application'}
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+        <div className="form-actions">
+          <button type="button" onClick={onCancel} className="btn-secondary">
             Cancel
+          </button>
+          <button type="submit" className="btn-primary">
+            {initialData ? 'Update' : 'Add'} Application
           </button>
         </div>
       </form>
     </div>
   );
 };
-
-export default ApplicationForm;

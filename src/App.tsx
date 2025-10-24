@@ -1,134 +1,156 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { JobApplication, ApplicationStatus } from './types';
-import { loadApplications, saveApplications } from './utils/storage';
-import ApplicationList from './components/ApplicationList';
-import ApplicationForm from './components/ApplicationForm';
-import Dashboard from './components/Dashboard';
-import Modal from './components/Modal';
+import { useApplications } from './hooks/useApplications';
+import { Dashboard } from './components/Dashboard';
+import { ApplicationForm } from './components/ApplicationForm';
+import { ApplicationList } from './components/ApplicationList';
+import './App.css';
+
+type View = 'dashboard' | 'list' | 'add' | 'edit';
 
 function App() {
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'applications'>('dashboard');
-  const [showForm, setShowForm] = useState(false);
+  const {
+    applications,
+    loading,
+    addApplication,
+    updateApplication,
+    deleteApplication,
+    clearAllApplications
+  } = useApplications();
+
+  const [currentView, setCurrentView] = useState<View>('dashboard');
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
 
-  useEffect(() => {
-    const loadedApplications = loadApplications();
-    setApplications(loadedApplications);
-    
-    // Listen for applications added by the browser extension
-    const handleApplicationAdded = (event: CustomEvent) => {
-      const newApplication = event.detail;
-      setApplications(prev => {
-        // Check if application already exists to avoid duplicates
-        const exists = prev.some(app => app.id === newApplication.id);
-        if (!exists) {
-          return [...prev, newApplication];
-        }
-        return prev;
-      });
-    };
-    
-    window.addEventListener('applicationAdded', handleApplicationAdded as EventListener);
-    
-    return () => {
-      window.removeEventListener('applicationAdded', handleApplicationAdded as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    saveApplications(applications);
-  }, [applications]);
-
-  const handleAddApplication = (application: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newApplication: JobApplication = {
-      ...application,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setApplications(prev => [...prev, newApplication]);
-    setShowForm(false);
-  };
-
-  const handleUpdateApplication = (updatedApplication: JobApplication) => {
-    setApplications(prev =>
-      prev.map(app =>
-        app.id === updatedApplication.id
-          ? { ...updatedApplication, updatedAt: new Date().toISOString() }
-          : app
-      )
-    );
-    setEditingApplication(null);
-    setShowForm(false);
-  };
-
-  const handleDeleteApplication = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this application?')) {
-      setApplications(prev => prev.filter(app => app.id !== id));
-    }
+  const handleAddApplication = (applicationData: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
+    addApplication(applicationData);
+    setCurrentView('list');
   };
 
   const handleEditApplication = (application: JobApplication) => {
     setEditingApplication(application);
-    setShowForm(true);
+    setCurrentView('edit');
   };
 
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setEditingApplication(null);
+  const handleUpdateApplication = (applicationData: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (editingApplication) {
+      updateApplication(editingApplication.id, applicationData);
+      setEditingApplication(null);
+      setCurrentView('list');
+    }
   };
 
-  return (
-    <div className="app">
-      <header className="header">
-        <div className="container">
-          <h1>Job Application Tracker</h1>
-          <nav className="flex flex-center gap-20 mt-20">
-            <button
-              className={`btn ${currentView === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setCurrentView('dashboard')}
-            >
-              Dashboard
-            </button>
-            <button
-              className={`btn ${currentView === 'applications' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setCurrentView('applications')}
-            >
-              Applications
-            </button>
-            <button
-              className="btn btn-success"
-              onClick={() => setShowForm(true)}
-            >
-              + Add Application
-            </button>
-          </nav>
+  const handleDeleteApplication = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this application?')) {
+      deleteApplication(id);
+    }
+  };
+
+  const handleStatusChange = (id: string, status: ApplicationStatus) => {
+    updateApplication(id, { status });
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('Are you sure you want to delete all applications? This cannot be undone.')) {
+      clearAllApplications();
+    }
+  };
+
+  const renderNavigation = () => (
+    <nav className="main-nav">
+      <div className="nav-brand">
+        <h1>Job Application Tracker</h1>
+      </div>
+      <div className="nav-links">
+        <button
+          className={currentView === 'dashboard' ? 'nav-link active' : 'nav-link'}
+          onClick={() => setCurrentView('dashboard')}
+        >
+          📊 Dashboard
+        </button>
+        <button
+          className={currentView === 'list' ? 'nav-link active' : 'nav-link'}
+          onClick={() => setCurrentView('list')}
+        >
+          📋 Applications ({applications.length})
+        </button>
+        <button
+          className={currentView === 'add' ? 'nav-link active' : 'nav-link'}
+          onClick={() => setCurrentView('add')}
+        >
+          ➕ Add New
+        </button>
+      </div>
+      <div className="nav-actions">
+        {applications.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            className="btn-danger-small"
+            title="Clear all applications"
+          >
+            🗑️ Clear All
+          </button>
+        )}
+      </div>
+    </nav>
+  );
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="loading">
+          <p>Loading applications...</p>
         </div>
-      </header>
+      );
+    }
 
-      <main className="container">
-        {currentView === 'dashboard' ? (
-          <Dashboard applications={applications} />
-        ) : (
+    switch (currentView) {
+      case 'dashboard':
+        return <Dashboard applications={applications} />;
+      
+      case 'list':
+        return (
           <ApplicationList
             applications={applications}
             onEdit={handleEditApplication}
             onDelete={handleDeleteApplication}
-            onUpdate={handleUpdateApplication}
+            onStatusChange={handleStatusChange}
           />
-        )}
-      </main>
-
-      {showForm && (
-        <Modal onClose={handleCloseForm}>
+        );
+      
+      case 'add':
+        return (
           <ApplicationForm
-            application={editingApplication}
-            onSubmit={editingApplication ? handleUpdateApplication : handleAddApplication}
-            onCancel={handleCloseForm}
+            onSubmit={handleAddApplication}
+            onCancel={() => setCurrentView('dashboard')}
           />
-        </Modal>
-      )}
+        );
+      
+      case 'edit':
+        return (
+          <ApplicationForm
+            onSubmit={handleUpdateApplication}
+            onCancel={() => {
+              setEditingApplication(null);
+              setCurrentView('list');
+            }}
+            initialData={editingApplication || undefined}
+          />
+        );
+      
+      default:
+        return <Dashboard applications={applications} />;
+    }
+  };
+
+  return (
+    <div className="app">
+      {renderNavigation()}
+      <main className="main-content">
+        {renderContent()}
+      </main>
+      <footer className="app-footer">
+        <p>Data is automatically saved to your browser's local storage</p>
+      </footer>
     </div>
   );
 }

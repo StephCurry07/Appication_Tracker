@@ -1,271 +1,214 @@
 import React, { useState } from 'react';
-import { JobApplication, ApplicationStatus } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { JobApplication, ApplicationStatus, StatusLabels } from '../types';
 
 interface ApplicationListProps {
   applications: JobApplication[];
   onEdit: (application: JobApplication) => void;
   onDelete: (id: string) => void;
-  onUpdate: (application: JobApplication) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
 }
 
-const ApplicationList: React.FC<ApplicationListProps> = ({ applications, onEdit, onDelete, onUpdate }) => {
-  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | 'all'>('all');
+export const ApplicationList: React.FC<ApplicationListProps> = ({
+  applications,
+  onEdit,
+  onDelete,
+  onStatusChange
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
-  const [editValue, setEditValue] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'dateApplied' | 'company' | 'status'>('dateApplied');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const getStatusLabel = (status: ApplicationStatus) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
+  const filteredApplications = applications
+    .filter(app => {
+      const matchesSearch = 
+        app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (app.location && app.location.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
 
-  const filteredApplications = applications.filter(app => {
-    const matchesStatus = filterStatus === 'all' || app.status === filterStatus;
-    const matchesSearch = searchTerm === '' || 
-      app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.location.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
-  });
-
-  const sortedApplications = filteredApplications.sort((a, b) => 
-    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
-
-  const handleCellClick = (id: string, field: string, currentValue: string) => {
-    setEditingCell({ id, field });
-    setEditValue(currentValue);
-  };
-
-  const handleCellSave = (application: JobApplication) => {
-    if (!editingCell) return;
-    
-    const updatedApp = {
-      ...application,
-      [editingCell.field]: editingCell.field === 'status' ? editValue as ApplicationStatus : editValue,
-      updatedAt: new Date().toISOString()
-    };
-    
-    onUpdate(updatedApp);
-    setEditingCell(null);
-    setEditValue('');
-  };
-
-  const handleCellCancel = () => {
-    setEditingCell(null);
-    setEditValue('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent, application: JobApplication) => {
-    if (e.key === 'Enter') {
-      handleCellSave(application);
-    } else if (e.key === 'Escape') {
-      handleCellCancel();
-    }
-  };
-
-  const renderEditableCell = (application: JobApplication, field: string, value: string, type: 'text' | 'select' | 'date' = 'text') => {
-    const isEditing = editingCell?.id === application.id && editingCell?.field === field;
-    
-    if (isEditing) {
-      if (type === 'select' && field === 'status') {
-        return (
-          <select
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={() => handleCellSave(application)}
-            onKeyDown={(e) => handleKeyPress(e, application)}
-            autoFocus
-            className="form-control"
-            style={{ minWidth: '150px' }}
-          >
-            {Object.values(ApplicationStatus).map(status => (
-              <option key={status} value={status}>
-                {getStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-        );
-      } else if (type === 'date') {
-        return (
-          <input
-            type="date"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={() => handleCellSave(application)}
-            onKeyDown={(e) => handleKeyPress(e, application)}
-            autoFocus
-            className="form-control"
-          />
-        );
-      } else {
-        return (
-          <input
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={() => handleCellSave(application)}
-            onKeyDown={(e) => handleKeyPress(e, application)}
-            autoFocus
-            className="form-control"
-          />
-        );
+      switch (sortBy) {
+        case 'dateApplied':
+          aValue = new Date(a.dateApplied).getTime();
+          bValue = new Date(b.dateApplied).getTime();
+          break;
+        case 'company':
+          aValue = a.company.toLowerCase();
+          bValue = b.company.toLowerCase();
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          aValue = a.dateApplied;
+          bValue = b.dateApplied;
       }
-    }
 
-    return (
-      <div
-        onClick={() => handleCellClick(application.id, field, value)}
-        style={{ 
-          cursor: 'pointer', 
-          padding: '8px', 
-          minHeight: '20px',
-          borderRadius: '4px',
-          transition: 'background-color 0.2s'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-      >
-        {field === 'status' ? (
-          <span className={`status-badge status-${value}`}>
-            {getStatusLabel(value as ApplicationStatus)}
-          </span>
-        ) : field === 'applicationDate' ? (
-          formatDate(value)
-        ) : (
-          value || '-'
-        )}
-      </div>
-    );
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+  const getStatusColor = (status: ApplicationStatus): string => {
+    const colors: Record<ApplicationStatus, string> = {
+      [ApplicationStatus.DRAFT]: '#6b7280',
+      [ApplicationStatus.APPLIED]: '#3b82f6',
+      [ApplicationStatus.PHONE_SCREEN]: '#8b5cf6',
+      [ApplicationStatus.INTERVIEW]: '#f59e0b',
+      [ApplicationStatus.TECHNICAL]: '#f97316',
+      [ApplicationStatus.FINAL_ROUND]: '#ef4444',
+      [ApplicationStatus.OFFER]: '#10b981',
+      [ApplicationStatus.REJECTED]: '#dc2626',
+      [ApplicationStatus.WITHDRAWN]: '#6b7280'
+    };
+    return colors[status];
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
     <div className="application-list">
-      <div className="card mb-20">
-        <div className="flex flex-between flex-wrap gap-20">
-          <div className="form-group" style={{ minWidth: '200px', marginBottom: 0 }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by company, position, or location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="form-group" style={{ minWidth: '150px', marginBottom: 0 }}>
-            <select
-              className="form-control"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as ApplicationStatus | 'all')}
-            >
-              <option value="all">All Statuses</option>
-              {Object.values(ApplicationStatus).map(status => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="list-controls">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Search by company, position, or location..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+        
+        <div className="filters">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | 'all')}
+            className="filter-select"
+          >
+            <option value="all">All Statuses</option>
+            {Object.entries(StatusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={`${sortBy}-${sortOrder}`}
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-');
+              setSortBy(field as 'dateApplied' | 'company' | 'status');
+              setSortOrder(order as 'asc' | 'desc');
+            }}
+            className="sort-select"
+          >
+            <option value="dateApplied-desc">Date Applied (Newest)</option>
+            <option value="dateApplied-asc">Date Applied (Oldest)</option>
+            <option value="company-asc">Company (A-Z)</option>
+            <option value="company-desc">Company (Z-A)</option>
+            <option value="status-asc">Status (A-Z)</option>
+            <option value="status-desc">Status (Z-A)</option>
+          </select>
         </div>
       </div>
 
-      {sortedApplications.length === 0 ? (
-        <div className="card text-center">
-          <p className="text-muted">
-            {applications.length === 0 
-              ? "No applications yet. Click 'Add Application' to get started!"
-              : "No applications match your current filters."
-            }
-          </p>
+      <div className="applications-count">
+        Showing {filteredApplications.length} of {applications.length} applications
+      </div>
+
+      {filteredApplications.length === 0 ? (
+        <div className="empty-state">
+          <p>No applications found.</p>
+          {searchTerm || statusFilter !== 'all' ? (
+            <p>Try adjusting your search or filters.</p>
+          ) : (
+            <p>Add your first job application to get started!</p>
+          )}
         </div>
       ) : (
-        <div className="card" style={{ overflowX: 'auto' }}>
-          <table className="applications-table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Position</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Applied Date</th>
-                <th>Salary Range</th>
-                <th>Source</th>
-                <th>Contact</th>
-                <th>Notes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedApplications.map(app => (
-                <tr key={app.id}>
-                  <td>{renderEditableCell(app, 'company', app.company)}</td>
-                  <td>{renderEditableCell(app, 'position', app.position)}</td>
-                  <td>{renderEditableCell(app, 'location', app.location)}</td>
-                  <td>{renderEditableCell(app, 'status', app.status, 'select')}</td>
-                  <td>{renderEditableCell(app, 'applicationDate', app.applicationDate, 'date')}</td>
-                  <td>{renderEditableCell(app, 'salaryRange', app.salaryRange || '')}</td>
-                  <td>{renderEditableCell(app, 'source', app.source)}</td>
-                  <td>{renderEditableCell(app, 'contactPerson', app.contactPerson || '')}</td>
-                  <td>
-                    <div
-                      onClick={() => handleCellClick(app.id, 'notes', app.notes)}
-                      style={{ 
-                        cursor: 'pointer', 
-                        padding: '8px', 
-                        minHeight: '20px',
-                        maxWidth: '200px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        borderRadius: '4px',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      title={app.notes}
-                    >
-                      {editingCell?.id === app.id && editingCell?.field === 'notes' ? (
-                        <textarea
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => handleCellSave(app)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.ctrlKey) {
-                              handleCellSave(app);
-                            } else if (e.key === 'Escape') {
-                              handleCellCancel();
-                            }
-                          }}
-                          autoFocus
-                          className="form-control"
-                          rows={3}
-                          style={{ minWidth: '200px' }}
-                        />
-                      ) : (
-                        app.notes || '-'
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex gap-5">
-                      <button
-                        className="btn btn-danger btn-small"
-                        onClick={() => onDelete(app.id)}
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="applications-grid">
+          {filteredApplications.map((app) => (
+            <div key={app.id} className="application-card">
+              <div className="card-header">
+                <h3>{app.company}</h3>
+                <div className="card-actions">
+                  <button
+                    onClick={() => onEdit(app)}
+                    className="btn-icon"
+                    title="Edit application"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => onDelete(app.id)}
+                    className="btn-icon delete"
+                    title="Delete application"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              
+              <div className="card-content">
+                <p className="position">{app.position}</p>
+                {app.location && <p className="location">📍 {app.location}</p>}
+                {app.salary && <p className="salary">💰 {app.salary}</p>}
+                <p className="date">📅 Applied: {formatDate(app.dateApplied)}</p>
+                
+                <div className="status-section">
+                  <label>Status:</label>
+                  <select
+                    value={app.status}
+                    onChange={(e) => onStatusChange(app.id, e.target.value as ApplicationStatus)}
+                    className="status-select"
+                    style={{ borderColor: getStatusColor(app.status) }}
+                  >
+                    {Object.entries(StatusLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {app.contactPerson && (
+                  <p className="contact">👤 {app.contactPerson}</p>
+                )}
+                
+                {app.jobUrl && (
+                  <a 
+                    href={app.jobUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="job-link"
+                  >
+                    🔗 View Job Posting
+                  </a>
+                )}
+                
+                {app.notes && (
+                  <div className="notes">
+                    <strong>Notes:</strong>
+                    <p>{app.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 };
-
-export default ApplicationList;

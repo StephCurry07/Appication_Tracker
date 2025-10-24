@@ -1,108 +1,136 @@
 import React from 'react';
-import { JobApplication, ApplicationStatus } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { JobApplication, ApplicationStatus, StatusLabels } from '../types';
 
 interface DashboardProps {
   applications: JobApplication[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ applications }) => {
-  const getStatusCount = (status: ApplicationStatus) => {
+export const Dashboard: React.FC<DashboardProps> = ({ applications }) => {
+  const getStatusCount = (status: ApplicationStatus): number => {
     return applications.filter(app => app.status === status).length;
   };
 
-  const getStatusLabel = (status: ApplicationStatus) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const getTotalApplications = (): number => applications.length;
+
+  const getActiveApplications = (): number => {
+    return applications.filter(app => 
+      ![ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN, ApplicationStatus.OFFER].includes(app.status)
+    ).length;
   };
 
-  const totalApplications = applications.length;
-  const activeApplications = applications.filter(app => 
-    ![ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN, ApplicationStatus.OFFER_DECLINED].includes(app.status)
-  ).length;
+  const getRecentApplications = (): JobApplication[] => {
+    return applications
+      .sort((a, b) => new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime())
+      .slice(0, 5);
+  };
 
-  const recentApplications = applications
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5);
+  const getApplicationsThisWeek = (): number => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    return applications.filter(app => 
+      new Date(app.dateApplied) >= oneWeekAgo
+    ).length;
+  };
 
-  const statusStats = Object.values(ApplicationStatus).map(status => ({
-    status,
-    count: getStatusCount(status),
-    label: getStatusLabel(status)
-  })).filter(stat => stat.count > 0);
+  const getSuccessRate = (): string => {
+    const totalApplied = applications.filter(app => app.status !== ApplicationStatus.DRAFT).length;
+    const offers = getStatusCount(ApplicationStatus.OFFER);
+    
+    if (totalApplied === 0) return '0%';
+    return `${Math.round((offers / totalApplied) * 100)}%`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getStatusColor = (status: ApplicationStatus): string => {
+    const colors: Record<ApplicationStatus, string> = {
+      [ApplicationStatus.DRAFT]: '#6b7280',
+      [ApplicationStatus.APPLIED]: '#3b82f6',
+      [ApplicationStatus.PHONE_SCREEN]: '#8b5cf6',
+      [ApplicationStatus.INTERVIEW]: '#f59e0b',
+      [ApplicationStatus.TECHNICAL]: '#f97316',
+      [ApplicationStatus.FINAL_ROUND]: '#ef4444',
+      [ApplicationStatus.OFFER]: '#10b981',
+      [ApplicationStatus.REJECTED]: '#dc2626',
+      [ApplicationStatus.WITHDRAWN]: '#6b7280'
+    };
+    return colors[status];
+  };
 
   return (
     <div className="dashboard">
-      <div className="grid grid-3 mb-20">
-        <div className="card text-center">
-          <h3 style={{ color: '#3498db', fontSize: '2rem', marginBottom: '10px' }}>
-            {totalApplications}
-          </h3>
-          <p className="text-muted">Total Applications</p>
+      <h2>Dashboard</h2>
+      
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Applications</h3>
+          <div className="stat-number">{getTotalApplications()}</div>
         </div>
-        <div className="card text-center">
-          <h3 style={{ color: '#27ae60', fontSize: '2rem', marginBottom: '10px' }}>
-            {activeApplications}
-          </h3>
-          <p className="text-muted">Active Applications</p>
+        
+        <div className="stat-card">
+          <h3>Active Applications</h3>
+          <div className="stat-number">{getActiveApplications()}</div>
         </div>
-        <div className="card text-center">
-          <h3 style={{ color: '#e74c3c', fontSize: '2rem', marginBottom: '10px' }}>
-            {getStatusCount(ApplicationStatus.REJECTED)}
-          </h3>
-          <p className="text-muted">Rejected</p>
+        
+        <div className="stat-card">
+          <h3>This Week</h3>
+          <div className="stat-number">{getApplicationsThisWeek()}</div>
+        </div>
+        
+        <div className="stat-card">
+          <h3>Success Rate</h3>
+          <div className="stat-number">{getSuccessRate()}</div>
         </div>
       </div>
 
-      <div className="grid grid-2">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Status Overview</h3>
-          </div>
-          <div className="status-overview">
-            {statusStats.map(({ status, count, label }) => (
-              <div key={status} className="flex flex-between mb-20">
-                <div className="flex gap-10">
-                  <span className={`status-badge status-${status}`}>
-                    {label}
-                  </span>
+      <div className="dashboard-content">
+        <div className="status-breakdown">
+          <h3>Status Breakdown</h3>
+          <div className="status-list">
+            {Object.entries(StatusLabels).map(([status, label]) => {
+              const count = getStatusCount(status as ApplicationStatus);
+              return (
+                <div key={status} className="status-item">
+                  <div 
+                    className="status-indicator"
+                    style={{ backgroundColor: getStatusColor(status as ApplicationStatus) }}
+                  ></div>
+                  <span className="status-label">{label}</span>
+                  <span className="status-count">{count}</span>
                 </div>
-                <span className="text-muted">{count}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Recent Activity</h3>
-          </div>
-          <div className="recent-activity">
-            {recentApplications.length === 0 ? (
-              <p className="text-muted text-center">No applications yet</p>
-            ) : (
-              recentApplications.map(app => (
-                <div key={app.id} className="flex flex-between mb-20">
-                  <div>
-                    <div className="card-title" style={{ fontSize: '1rem', marginBottom: '5px' }}>
-                      {app.position} at {app.company}
-                    </div>
-                    <div className="flex gap-10">
-                      <span className={`status-badge status-${app.status}`}>
-                        {getStatusLabel(app.status)}
-                      </span>
-                    </div>
+        <div className="recent-applications">
+          <h3>Recent Applications</h3>
+          {getRecentApplications().length === 0 ? (
+            <p className="empty-message">No applications yet. Add your first application!</p>
+          ) : (
+            <div className="recent-list">
+              {getRecentApplications().map((app) => (
+                <div key={app.id} className="recent-item">
+                  <div className="recent-info">
+                    <strong>{app.company}</strong>
+                    <span className="recent-position">{app.position}</span>
+                    <span className="recent-date">{formatDate(app.dateApplied)}</span>
                   </div>
-                  <div className="text-muted" style={{ fontSize: '0.8rem' }}>
-                    {formatDate(app.updatedAt)}
+                  <div 
+                    className="recent-status"
+                    style={{ color: getStatusColor(app.status) }}
+                  >
+                    {StatusLabels[app.status]}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-export default Dashboard;
