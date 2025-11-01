@@ -25,13 +25,13 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
 # Vercel
 .vercel
+
+# Markdown files
+*.md
+!DEVELOPMENT.md
+
+*.sql
+!supabase-setup.sql

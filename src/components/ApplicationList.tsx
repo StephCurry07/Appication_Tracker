@@ -204,6 +204,36 @@ export const ApplicationList: React.FC<ApplicationListProps> = ({
                     <p>{app.notes}</p>
                   </div>
                 )}
+
+                {app.aiAnalyzedAt && (
+                  <div className="ai-info">
+                    <h4>🤖 AI Analysis</h4>
+                    
+                    {app.techStack && Array.isArray(app.techStack) && app.techStack.length > 0 && (
+                      <div className="tech-stack">
+                        {app.techStack.map((tech, index) => (
+                          <span key={index} className="tech-tag">{tech}</span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="work-info">
+                      {app.jobType && <span>📋 {app.jobType}</span>}
+                      {app.workMode && <span>🏠 {app.workMode}</span>}
+                      {app.experienceRequired && <span>⏱️ {app.experienceRequired}</span>}
+                    </div>
+                    
+                    {app.applicationDeadline && (
+                      <p className="deadline">⏰ Deadline: {formatDate(app.applicationDeadline)}</p>
+                    )}
+                    
+                    {app.aiAnalysisConfidence && (
+                      <div className="ai-confidence-badge">
+                        🎯 {Math.round(app.aiAnalysisConfidence * 100)}% confidence
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}

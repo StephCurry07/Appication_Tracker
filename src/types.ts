@@ -10,6 +10,17 @@ export interface JobApplication {
   contactPerson?: string;
   contactEmail?: string;
   jobUrl?: string;
+  // AI-extracted fields
+  experienceRequired?: string;
+  techStack?: string[]; // Will be stored as JSON string in DB
+  jobType?: string;
+  workMode?: string;
+  benefits?: string[]; // Will be stored as JSON string in DB
+  requirements?: string[]; // Will be stored as JSON string in DB
+  responsibilities?: string[]; // Will be stored as JSON string in DB
+  applicationDeadline?: string;
+  aiAnalysisConfidence?: number;
+  aiAnalyzedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

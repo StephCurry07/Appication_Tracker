@@ -1,41 +1,69 @@
-# Job Application Tracker - Local
+# Job Application Tracker
 
-A React-based job application tracker with localStorage persistence, ready for Vercel deployment.
+A React-based job application tracker with Supabase backend for cross-device synchronization.
 
 ## ✨ Features
 
-- **Persistent Storage**: All data saved to browser localStorage - no database required!
-- **Full CRUD Operations**: Add, edit, delete, and update job applications
-- **Status Tracking**: Track applications through different stages (Draft → Applied → Interview → Offer)
-- **Search & Filter**: Find applications by company, position, or location
-- **Dashboard Analytics**: View application statistics and recent activity
-- **Responsive Design**: Works on desktop and mobile devices
-- **Built with Modern Tech**: React 18, TypeScript, Vite
+- **🤖 AI-Powered Analysis**: Automatically extract job details from URLs using Google Gemini AI
+- **🔄 Cross-Device Sync**: Access your applications from any device with Supabase backend
+- **🔐 User Authentication**: Secure sign-up/sign-in with email and password
+- **📝 Full CRUD Operations**: Add, edit, delete, and update job applications
+- **📊 Status Tracking**: Track applications through different stages (Draft → Applied → Interview → Offer)
+- **🔍 Smart Search & Filter**: Find applications by company, position, location, tech stack, and more
+- **📈 Dashboard Analytics**: View application statistics and recent activity
+- **📱 Responsive Design**: Works on desktop and mobile devices
+- **⚡ Real-time Updates**: Changes sync instantly across all your devices
+- **🛠️ Tech Stack Tracking**: Automatically detect and track required technologies
+- **💼 Work Mode Detection**: Remote, Hybrid, or On-site classification
+- **🎯 Confidence Scoring**: AI provides confidence levels for extracted information
+- **🚀 Built with Modern Tech**: React 18, TypeScript, Vite, Supabase, Google Gemini AI
 
 ## 🚀 Quick Start
 
-```bash
-# Install dependencies
-npm install
+1. **Set up Supabase** (see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
 
-# Start development server (opens at http://localhost:3000)
-npm run dev
+2. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Supabase and Gemini API credentials
+   ```
 
-# Build for production
-npm run build
+3. **Install and run**:
+   ```bash
+   # Install dependencies
+   npm install
 
-# Preview production build
-npm run preview
-```
+   # Start development server (opens at http://localhost:3000)
+   npm run dev
+
+   # Build for production
+   npm run build
+
+   # Preview production build
+   npm run preview
+   ```
 
 ## 📊 How It Works
 
-The application uses **localStorage** to persist your job application data directly in your browser. This means:
-- ✅ No database setup required
-- ✅ Data persists between browser sessions
-- ✅ Works offline
+The application uses **Supabase** as a backend-as-a-service to store and sync your job application data. This means:
+- ✅ Access your data from any device
+- ✅ Real-time synchronization
+- ✅ Secure user authentication
+- ✅ Automatic backups
 - ✅ Fast and responsive
-- ⚠️ Data is tied to your browser/device
+- ✅ Data is safely stored in the cloud
+
+## 🔧 Setup Requirements
+
+Before running the application, you need to:
+1. **Create a Supabase project** - For database and authentication
+2. **Get a Google Gemini API key** - For AI-powered job analysis
+3. **Set up the database schema** - Tables and security policies
+4. **Configure environment variables** - API keys and URLs
+
+**Setup Guides:**
+- 📚 [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) - Database and authentication setup
+- 🤖 [AI_SETUP.md](./AI_SETUP.md) - AI features and Gemini API setup
 
 ## 🌐 Deployment to Vercel
 
@@ -48,15 +76,22 @@ npm i -g vercel
 vercel --prod
 ```
 
+**Important**: Add your environment variables to Vercel:
+- Go to your Vercel project → Settings → Environment Variables
+- Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_GEMINI_API_KEY`
+
 ### Option 2: GitHub Integration
 1. Push your code to a GitHub repository
 2. Go to [vercel.com](https://vercel.com) and import your repository
-3. Vercel will automatically deploy on every push to main branch
+3. Add all environment variables in Vercel dashboard
+4. Vercel will automatically deploy on every push to main branch
 
 ### Option 3: Drag & Drop
-1. Run `npm run build`
-2. Go to [vercel.com](https://vercel.com)
-3. Drag and drop the `dist` folder
+1. Create a `.env` file with your Supabase and Gemini API credentials
+2. Run `npm run build`
+3. Go to [vercel.com](https://vercel.com)
+4. Drag and drop the `dist` folder
+5. Add all environment variables in the Vercel dashboard
 
 ## 📁 Project Structure
 
@@ -91,13 +126,18 @@ src/
 
 ## 💾 Data Management
 
-Your application data is automatically saved to localStorage whenever you:
+Your application data is automatically synced with Supabase whenever you:
 - Add a new application
 - Update an existing application
 - Change application status
 - Delete an application
 
-**Note**: Clearing browser data will remove all applications. Consider exporting important data or using the app consistently on the same browser/device.
+**Benefits**:
+- ✅ Access from any device
+- ✅ Automatic cloud backups
+- ✅ Real-time synchronization
+- ✅ Secure user authentication
+- ✅ Data persistence across devices
 
 ## 🔧 Configuration Files
 

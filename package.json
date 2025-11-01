@@ -1,7 +1,7 @@
 {
   "name": "job-application-tracker-local",
   "version": "1.0.0",
-  "description": "A local version of the job application tracker for Vercel deployment",
+  "description": "A job application tracker with Supabase backend for cross-device synchronization",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,17 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
-    "deploy": "npm run build"
+    "deploy": "npm run build",
+    "dev:setup": "node scripts/dev-setup.js setup",
+    "dev:check": "node scripts/dev-setup.js check",
+    "dev:reset": "node scripts/dev-setup.js reset",
+    "dev:migrate": "node scripts/dev-setup.js migrate",
+    "dev:env": "node scripts/dev-setup.js env",
+    "dev:proxy": "node scripts/dev-proxy.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.78.0",
     "date-fns": "^2.30.0",
     "import-fresh": "^3.3.1",
     "react": "^18.2.0",
@@ -24,9 +32,12 @@
     "@typescript-eslint/parser": "^7.2.0",
     "@vercel/node": "^3.0.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "cors": "^2.8.5",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
   }

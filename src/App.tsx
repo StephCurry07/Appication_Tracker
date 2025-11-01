@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { JobApplication, ApplicationStatus } from './types';
-import { useApplications } from './hooks/useApplications';
+import { useSupabaseApplications } from './hooks/useSupabaseApplications';
 import { Dashboard } from './components/Dashboard';
 import { ApplicationForm } from './components/ApplicationForm';
 import { ApplicationList } from './components/ApplicationList';
+import { AuthForm } from './components/AuthForm';
 import './App.css';
 
 type View = 'dashboard' | 'list' | 'add' | 'edit';
@@ -12,30 +13,50 @@ function App() {
   const {
     applications,
     loading,
+    error,
+    user,
     addApplication,
     updateApplication,
     deleteApplication,
-    clearAllApplications
-  } = useApplications();
+    clearAllApplications,
+    signInWithEmail,
+    signUpWithEmail,
+    signOut
+  } = useSupabaseApplications();
 
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  // Use sessionStorage to persist navigation only within the same tab session
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const saved = sessionStorage.getItem('currentView');
+    return (saved as View) || 'dashboard';
+  });
+  
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
+
+  // Save current view to sessionStorage (clears when tab closes)
+  const handleViewChange = (view: View) => {
+    setCurrentView(view);
+    sessionStorage.setItem('currentView', view);
+    // Clear editing state when changing views
+    if (view !== 'edit') {
+      setEditingApplication(null);
+    }
+  };
 
   const handleAddApplication = (applicationData: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
     addApplication(applicationData);
-    setCurrentView('list');
+    handleViewChange('list');
   };
 
   const handleEditApplication = (application: JobApplication) => {
     setEditingApplication(application);
-    setCurrentView('edit');
+    handleViewChange('edit');
   };
 
   const handleUpdateApplication = (applicationData: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingApplication) {
       updateApplication(editingApplication.id, applicationData);
       setEditingApplication(null);
-      setCurrentView('list');
+      handleViewChange('list');
     }
   };
 
@@ -63,24 +84,36 @@ function App() {
       <div className="nav-links">
         <button
           className={currentView === 'dashboard' ? 'nav-link active' : 'nav-link'}
-          onClick={() => setCurrentView('dashboard')}
+          onClick={() => handleViewChange('dashboard')}
         >
           📊 Dashboard
         </button>
         <button
           className={currentView === 'list' ? 'nav-link active' : 'nav-link'}
-          onClick={() => setCurrentView('list')}
+          onClick={() => handleViewChange('list')}
         >
           📋 Applications ({applications.length})
         </button>
         <button
           className={currentView === 'add' ? 'nav-link active' : 'nav-link'}
-          onClick={() => setCurrentView('add')}
+          onClick={() => handleViewChange('add')}
         >
           ➕ Add New
         </button>
       </div>
       <div className="nav-actions">
+        {user && (
+          <div className="user-info">
+            <span className="user-email">{user.email}</span>
+            <button
+              onClick={signOut}
+              className="btn-secondary-small"
+              title="Sign out"
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        )}
         {applications.length > 0 && (
           <button
             onClick={handleClearAll}
@@ -95,10 +128,33 @@ function App() {
   );
 
   const renderContent = () => {
+    // Show authentication form if user is not logged in
+    if (!user) {
+      return (
+        <AuthForm
+          onSignIn={signInWithEmail}
+          onSignUp={signUpWithEmail}
+          loading={loading}
+          error={error}
+        />
+      );
+    }
+
     if (loading) {
       return (
         <div className="loading">
           <p>Loading applications...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="error-container">
+          <p>Error: {error}</p>
+          <button onClick={() => window.location.reload()} className="btn-primary">
+            Retry
+          </button>
         </div>
       );
     }
@@ -144,13 +200,15 @@ function App() {
 
   return (
     <div className="app">
-      {renderNavigation()}
+      {user && renderNavigation()}
       <main className="main-content">
         {renderContent()}
       </main>
-      <footer className="app-footer">
-        <p>Data is automatically saved to your browser's local storage</p>
-      </footer>
+      {user && (
+        <footer className="app-footer">
+          <p>Data is automatically synced across all your devices with Supabase</p>
+        </footer>
+      )}
     </div>
   );
 }
