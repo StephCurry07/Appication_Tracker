@@ -1022,4 +1022,36 @@ aft Notification */
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 500;
+}/* Au
+to-update indicators */
+.auto-update-indicator {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+.form-group input.auto-updated {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  animation: highlightField 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: scale(0.8); }
+  20% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+@keyframes highlightField {
+  0% { border-color: #d1d5db; }
+  20% { border-color: #10b981; }
+  80% { border-color: #10b981; }
+  100% { border-color: #d1d5db; }
 }

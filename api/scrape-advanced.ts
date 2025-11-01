@@ -1,5 +1,191 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Import specialized scraper (we'll need to inline it since we can't import from src in API routes)
+const SPECIALIZED_CONFIGS = {
+  'jobs.apple.com': {
+    selectors: [
+      '#jdp-job-description',
+      '.job-description-content',
+      '.jd-info',
+      '.job-summary'
+    ],
+    removeSelectors: [
+      '.apply-button',
+      '.share-job',
+      '.job-actions',
+      'nav',
+      'footer'
+    ],
+    company: 'Apple'
+  },
+  
+  'careers.google.com': {
+    selectors: [
+      '[data-section="description"]',
+      '.job-description',
+      '.gc-job-detail__content'
+    ],
+    removeSelectors: [
+      '.gc-job-detail__apply',
+      '.gc-job-detail__share',
+      'nav',
+      'footer'
+    ],
+    company: 'Google'
+  },
+  
+  'amazon.jobs': {
+    selectors: [
+      '.job-detail',
+      '.job-description',
+      '[data-test="job-description"]'
+    ],
+    removeSelectors: [
+      '.apply-button-container',
+      '.job-alert',
+      'nav',
+      'footer'
+    ],
+    company: 'Amazon'
+  },
+  
+  'careers.microsoft.com': {
+    selectors: [
+      '.job-description-container',
+      '.job-details',
+      '[data-automation-id="jobPostingDescription"]'
+    ],
+    removeSelectors: [
+      '.apply-section',
+      '.job-share',
+      'nav',
+      'footer'
+    ],
+    company: 'Microsoft'
+  },
+  
+  'jobs.netflix.com': {
+    selectors: [
+      '.job-description',
+      '.job-posting-content',
+      '.position-content'
+    ],
+    removeSelectors: [
+      '.apply-now',
+      '.share-job',
+      'nav',
+      'footer'
+    ],
+    company: 'Netflix'
+  },
+  
+  'careers.meta.com': {
+    selectors: [
+      '[data-testid="job-description"]',
+      '.job-description',
+      '.position-details'
+    ],
+    removeSelectors: [
+      '.apply-button',
+      '.job-share',
+      'nav',
+      'footer'
+    ],
+    company: 'Meta'
+  },
+  
+  'jobs.lever.co': {
+    selectors: [
+      '.section-wrapper',
+      '.job-description',
+      '.content'
+    ],
+    removeSelectors: [
+      '.apply-button',
+      '.postings-share',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (Lever)'
+  },
+  
+  'boards.greenhouse.io': {
+    selectors: [
+      '.job-post-content',
+      '.application-details',
+      '.job-description'
+    ],
+    removeSelectors: [
+      '.application-form',
+      '.job-post-apply',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (Greenhouse)'
+  },
+  
+  'linkedin.com/jobs': {
+    selectors: [
+      '.jobs-description-content__text',
+      '.jobs-box__html-content',
+      '.job-details'
+    ],
+    removeSelectors: [
+      '.jobs-apply-button',
+      '.jobs-save-button',
+      '.jobs-share',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (LinkedIn)'
+  },
+  
+  'indeed.com': {
+    selectors: [
+      '.jobsearch-jobDescriptionText',
+      '.jobsearch-JobComponent-description',
+      '#jobDescriptionText'
+    ],
+    removeSelectors: [
+      '.jobsearch-IndeedApplyButton',
+      '.jobsearch-JobMetadataFooter',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (Indeed)'
+  },
+  
+  'glassdoor.com': {
+    selectors: [
+      '.jobDescriptionContent',
+      '.desc',
+      '.job-description-content'
+    ],
+    removeSelectors: [
+      '.apply-btn',
+      '.job-actions',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (Glassdoor)'
+  },
+  
+  'wellfound.com': {
+    selectors: [
+      '.job-description',
+      '.startup-job-listing',
+      '.job-content'
+    ],
+    removeSelectors: [
+      '.apply-button',
+      '.job-share',
+      'nav',
+      'footer'
+    ],
+    company: 'Various (Wellfound)'
+  }
+};
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -90,6 +276,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let content: string | null = null;
     let method = 'unknown';
 
+    // Check if we have specialized scraping for this site
+    const hasSpecializedScraper = Object.keys(SPECIALIZED_CONFIGS).some(domain => 
+      parsedUrl.hostname.includes(domain) || domain.includes(parsedUrl.hostname.replace('www.', ''))
+    );
+
     // Try different scraping strategies
     switch (strategy) {
       case 'basic':
@@ -98,13 +289,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
       case 'targeted':
         content = await targetedScrape(url, parsedUrl.hostname);
-        method = 'targeted';
+        method = hasSpecializedScraper ? 'specialized-targeted' : 'targeted';
         break;
       case 'auto':
       default:
-        // Try targeted first, then fall back to basic
+        // Try targeted first (includes specialized), then fall back to basic
         content = await targetedScrape(url, parsedUrl.hostname);
-        method = 'targeted';
+        method = hasSpecializedScraper ? 'specialized-targeted' : 'targeted';
         
         if (!content || content.length < 200) {
           content = await basicScrape(url);
@@ -201,13 +392,18 @@ async function targetedScrape(url: string, hostname: string): Promise<string | n
     const html = await basicScrape(url);
     if (!html) return null;
 
-    // Find site-specific selectors
+    // Try specialized scraping first
+    const specializedResult = extractSpecializedContent(html, url);
+    if (specializedResult && specializedResult.content.length > 200) {
+      console.log(`Using specialized scraper for ${hostname}: ${specializedResult.method}`);
+      return specializedResult.content;
+    }
+
+    // Find site-specific selectors (fallback)
     const selectors = Object.keys(siteSelectors).find(domain => hostname.includes(domain));
     
     if (selectors) {
       console.log(`Using targeted selectors for ${hostname}`);
-      // In a real implementation, you'd use a DOM parser like jsdom
-      // For now, we'll use regex patterns to extract content between common job posting tags
       const targetedContent = extractTargetedContent(html, siteSelectors[selectors]);
       if (targetedContent && targetedContent.length > 200) {
         return targetedContent;
@@ -221,6 +417,119 @@ async function targetedScrape(url: string, hostname: string): Promise<string | n
     console.error('Targeted scrape failed:', error);
     return null;
   }
+}
+
+function extractSpecializedContent(html: string, url: string): {content: string, method: string} | null {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    
+    // Find matching config
+    let config = null;
+    let domain = '';
+    
+    for (const [configDomain, configData] of Object.entries(SPECIALIZED_CONFIGS)) {
+      if (hostname.includes(configDomain) || configDomain.includes(hostname.replace('www.', ''))) {
+        config = configData;
+        domain = configDomain;
+        break;
+      }
+    }
+    
+    if (!config) return null;
+
+    // Parse HTML (basic implementation without jsdom)
+    let jobContent = '';
+    
+    // Try to extract content using specialized selectors
+    for (const selector of config.selectors) {
+      // Simple regex-based extraction for common patterns
+      const classMatch = selector.match(/\.([a-zA-Z0-9_-]+)/);
+      const idMatch = selector.match(/#([a-zA-Z0-9_-]+)/);
+      const dataMatch = selector.match(/\[data-[^=]+=["']([^"']+)["']\]/);
+      
+      if (classMatch) {
+        const className = classMatch[1];
+        const regex = new RegExp(`<[^>]*class[^>]*${className}[^>]*>(.*?)<\/[^>]*>`, 'gis');
+        const match = regex.exec(html);
+        if (match && match[1]) {
+          const content = extractTextFromHtml(match[1]);
+          if (content.length > 200) {
+            jobContent = content;
+            break;
+          }
+        }
+      }
+      
+      if (idMatch) {
+        const idName = idMatch[1];
+        const regex = new RegExp(`<[^>]*id[^>]*${idName}[^>]*>(.*?)<\/[^>]*>`, 'gis');
+        const match = regex.exec(html);
+        if (match && match[1]) {
+          const content = extractTextFromHtml(match[1]);
+          if (content.length > 200) {
+            jobContent = content;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!jobContent || jobContent.length < 100) {
+      return null;
+    }
+
+    // Clean and enhance content
+    const cleanContent = cleanJobContent(jobContent, config.company);
+    
+    return {
+      content: cleanContent,
+      method: `specialized-${domain}`
+    };
+
+  } catch (error) {
+    console.error('Error in specialized extraction:', error);
+    return null;
+  }
+}
+
+function cleanJobContent(content: string, company: string): string {
+  // Remove excessive whitespace
+  let cleaned = content.replace(/\s+/g, ' ').trim();
+  
+  // Add company context if not already present
+  if (!cleaned.toLowerCase().includes(company.toLowerCase())) {
+    cleaned = `Company: ${company}\n\n${cleaned}`;
+  }
+
+  // Remove common noise
+  const noisePatterns = [
+    /apply now/gi,
+    /share this job/gi,
+    /save job/gi,
+    /back to search/gi,
+    /view all jobs/gi,
+    /cookie policy/gi,
+    /privacy policy/gi,
+    /terms of service/gi,
+    /©.*rights reserved/gi
+  ];
+
+  noisePatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '');
+  });
+
+  // Normalize section headers
+  cleaned = cleaned
+    .replace(/\b(job description|description|overview)\b/gi, '\n\nJob Description:')
+    .replace(/\b(responsibilities|duties|what you.ll do)\b/gi, '\n\nResponsibilities:')
+    .replace(/\b(requirements|qualifications|what we.re looking for)\b/gi, '\n\nRequirements:')
+    .replace(/\b(benefits|perks|what we offer)\b/gi, '\n\nBenefits:')
+    .replace(/\b(about (us|the company)|company overview)\b/gi, '\n\nAbout the Company:');
+
+  // Final cleanup
+  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+
+  return cleaned;
 }
 
 function extractTargetedContent(html: string, selectors: string[]): string | null {

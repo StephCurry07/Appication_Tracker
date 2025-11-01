@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { encode } from '@toon-format/toon'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
@@ -51,40 +52,40 @@ export class JobAnalyzer {
 
   async analyzeJobContent(content: string): Promise<JobAnalysisResult | null> {
     try {
+      const json_content = {
+          "company": "Company name",
+          "position": "Job title/position",
+          "location": "Location (city, state/country or 'Remote')",
+          "salary": "Salary range or compensation details",
+          "experienceRequired": "Years of experience required (e.g., '2-4 years', 'Entry level', 'Senior level')",
+          "techStack": ["Technology 1", "Technology 2", "Technology 3"],
+          "jobType": "Full-time/Part-time/Contract/Internship",
+          "workMode": "Remote/Hybrid/On-site",
+          "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"],
+          "requirements": ["Requirement 1", "Requirement 2", "Requirement 3"],
+          "responsibilities": ["Responsibility 1", "Responsibility 2", "Responsibility 3"],
+          "applicationDeadline": "Deadline if mentioned (YYYY-MM-DD format)",
+          "confidence": 0.95,
+          "rawDescription": "Brief summary of the role"
+        }
+
+        const toon_content = encode(json_content)
+
       const prompt = `
 You are a job posting analyzer. Extract information from the job posting and return ONLY a valid JSON object.
 
 Job posting content:
 ${content}
 
-CRITICAL: Return ONLY the JSON object below with no markdown formatting, no code blocks, no additional text:
-
-{
-  "company": "Company name",
-  "position": "Job title/position",
-  "location": "Location (city, state/country or 'Remote')",
-  "salary": "Salary range or compensation details",
-  "experienceRequired": "Years of experience required (e.g., '2-4 years', 'Entry level', 'Senior level')",
-  "techStack": ["Technology 1", "Technology 2", "Technology 3"],
-  "jobType": "Full-time/Part-time/Contract/Internship",
-  "workMode": "Remote/Hybrid/On-site",
-  "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"],
-  "requirements": ["Requirement 1", "Requirement 2", "Requirement 3"],
-  "responsibilities": ["Responsibility 1", "Responsibility 2", "Responsibility 3"],
-  "applicationDeadline": "Deadline if mentioned (YYYY-MM-DD format)",
-  "confidence": 0.95,
-  "rawDescription": "Brief summary of the role"
-}
+${toon_content}
 
 Rules:
-- NO markdown code blocks (\`\`\`json)
 - NO additional text or explanations
 - Use empty string "" for missing text fields
 - Use empty array [] for missing array fields
 - Confidence score: 0.1 to 1.0 based on information clarity
 - Tech stack: programming languages, frameworks, tools
 - Keep arrays to 5-7 items maximum
-- For salary: include "competitive", "DOE", etc. if no specific range
 - Location: prefer specific cities over regions
 `;
 
@@ -101,8 +102,6 @@ Rules:
 
       // Remove any leading/trailing whitespace and newlines
       text = text.trim();
-
-      console.log('Cleaned AI response:', text.substring(0, 200) + '...');
 
       // Parse the JSON response
       let analysisResult;

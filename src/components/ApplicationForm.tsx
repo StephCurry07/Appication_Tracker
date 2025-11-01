@@ -111,6 +111,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     // Show AI fields if we have AI data or if it was previously shown in this session
     return !!(formData.aiAnalyzedAt || sessionStorage.getItem('showAiFields') === 'true');
   });
+  const [dateAutoUpdated, setDateAutoUpdated] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -158,7 +159,16 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const newFormData = { ...formData, [name]: value };
+    let newFormData = { ...formData, [name]: value };
+    
+    // Auto-update dateApplied when status changes from draft to applied
+    if (name === 'status' && value === 'applied' && formData.status === 'draft') {
+      newFormData.dateApplied = getCurrentDate();
+      setDateAutoUpdated(true);
+      // Clear the indicator after 3 seconds
+      setTimeout(() => setDateAutoUpdated(false), 3000);
+    }
+    
     setFormData(newFormData);
     
     // Save draft to sessionStorage (but not when editing existing application)
@@ -355,13 +365,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="dateApplied">Date Applied</label>
+            <label htmlFor="dateApplied">
+              Date Applied
+              {dateAutoUpdated && (
+                <span className="auto-update-indicator">📅 Auto-updated to today!</span>
+              )}
+            </label>
             <input
               type="date"
               id="dateApplied"
               name="dateApplied"
               value={formData.dateApplied}
               onChange={handleChange}
+              className={dateAutoUpdated ? 'auto-updated' : ''}
             />
           </div>
         </div>

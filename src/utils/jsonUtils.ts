@@ -31,10 +31,12 @@ export const processJobApplicationData = (app: any) => {
 
 /**
  * Prepare job application data for Supabase storage by converting arrays to JSON strings
+ * and handling date fields properly
  */
 export const prepareJobApplicationForStorage = (data: any) => {
   const prepared = { ...data };
   
+  // Convert arrays to JSON strings
   if (data.techStack && Array.isArray(data.techStack)) {
     prepared.techStack = JSON.stringify(data.techStack);
   }
@@ -46,6 +48,30 @@ export const prepareJobApplicationForStorage = (data: any) => {
   }
   if (data.responsibilities && Array.isArray(data.responsibilities)) {
     prepared.responsibilities = JSON.stringify(data.responsibilities);
+  }
+  
+  // Handle date fields - convert empty strings to null for PostgreSQL
+  // Special handling for dateApplied since it's NOT NULL in database
+  if (prepared.dateApplied === '' || prepared.dateApplied === undefined) {
+    // For draft applications, use today's date as default
+    // For applied applications, this should already be set
+    prepared.dateApplied = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  }
+  
+  // Handle other optional date fields
+  const optionalDateFields = ['applicationDeadline'];
+  optionalDateFields.forEach(field => {
+    if (prepared[field] === '' || prepared[field] === undefined) {
+      prepared[field] = null;
+    }
+  });
+  
+  // createdAt and updatedAt should not be set to null if they exist
+  if (prepared.createdAt === '') {
+    delete prepared.createdAt; // Let database handle default
+  }
+  if (prepared.updatedAt === '') {
+    delete prepared.updatedAt; // Let database handle default
   }
   
   return prepared;
